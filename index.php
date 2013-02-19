@@ -13,6 +13,10 @@
 	$accountMessage = '';
 	
 	
+	/* Account information */
+	$mentions = array();
+	$encodedMentions;
+	
 	
 	// Start session
 	session_start();
@@ -69,21 +73,43 @@
 	 			}
 	 			
 	 			// API call: Account information
-	 			$response = @file_get_contents('http://api.engagor.com/me?access_token='.$_SESSION['access_token']);
+	 			$response = @file_get_contents('http://api.engagor.com/me/accounts?access_token='.$_SESSION['access_token']);
 	 			$params = json_decode($response, true); 
-	 			$_SESSION['name'] = $params['response']['name'];
-	 			$_SESSION['userId'] = $params['response']['id'];
-	 			var_dump($params, true);
+	 			$_SESSION['name'] = $params['response']['data'][0]['name'];
+	 			$_SESSION['accountId'] = $params['response']['data'][0]['id'];
+				
+				// Projects & topics
+				// $projects = $params['response']['data'][0]['projects'];
+				//dump($projects);
+				
 	 			isset($_SESSION['name']) ? $accountMessage = $_SESSION['name'].' is successfully logged in' : null;
 	 			
 	 			
 	 			// API call get inbox messages
-	 			//http://api.engagor.com/:account_id/inbox/mentions
-	 			$response = @file_get_contents('http://api.engagor.com/'.$_SESSION['userId'].
-	 				'/inbox/mentions?access_token='.$_SESSION['access_token']);
-	 				
+	 			$response = @file_get_contents('http://api.engagor.com/'.$_SESSION['accountId'].'/inbox/mentions?access_token='.$_SESSION['access_token'].'&limit=100');
+
 	 			$params = json_decode($response, true); 
-	 			var_dump($params, true);
+	 			
+	 			// loop throug the mentions & search for location
+	 			foreach ($params['response']['data'] as $mention) {
+	 				if (isset($mention['location']) && isset($mention['location']['latitude'])){
+	 					array_push($mentions, $mention);
+	 				}
+	 			}
+	 			$encodedMentions = json_encode($mentions);
+	 		}
+	 		
+	 		
+	 		
+	 		/**
+	 		* Debug: Array
+	 		* ----------------------------------------------------------------
+	 		*/
+	 		
+	 		function dump($var) { 
+	 			echo '<pre>';
+	 			print_r($var); 
+	 			echo '</pre>';
 	 		}
 	 		
 ?>
@@ -103,41 +129,13 @@
 	    <title>Engagor :: MentionMap</title>
 	    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 	    <!-- Bootstrap -->
-	    <link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
-	    
-	    <style>
-	      body {
-	        padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
-	      }
+	    <link href="css/bootstrap.css" rel="stylesheet" media="screen">
+	    	    
+	   	<script src="http://code.jquery.com/jquery-latest.js"></script>
+	  	<script src="js/bootstrap.min.js"></script>
+	   	<script src="js/map.js"></script>
 	      
-	      /* Sticky footer styles
-	            -------------------------------------------------- */
-	      
-	            html,
-	            body {
-	              height: 100%;
-	              /* The html and body elements cannot have any padding or margin. */
-	            }
-	      
-	            /* Wrapper for page content to push down footer */
-	            #wrap {
-	              min-height: 100%;
-	              height: auto !important;
-	              height: 100%;
-	              /* Negative indent footer by it's height */
-	              margin: 0 auto -60px;
-	            }
-	      
-	            /* Set the fixed height of the footer here */
-	            #push,
-	            #footer {
-	              height: 60px;
-	            }
-	            #footer {
-	              background-color: #f5f5f5;
-	            }
-	      
-	    </style>
+	      	    
   	</head>
   	
   		<body>
@@ -145,10 +143,9 @@
 			<div class="navbar navbar-inverse navbar-fixed-top">
 			  	<div class="navbar-inner">
 			   		<div class="container">
-			            <a class="brand" href="#">Engagor App</a>
+			            <a class="brand" href="index.php"><img src="img/logo.png" alt="" /></a>
 			            <div class="nav-collapse collapse">
 			              	<ul class="nav">
-			                	<li class="active"><a href="index.php">Home</a></li>
 			                	<?php if(!isset($_SESSION['access_token'])){ ?>
 			                	<li>
 			                		<form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post" id="loginForm">
@@ -177,19 +174,38 @@
 				<?php } if ($error){ ?>
 					<div class="alert alert-error"><button type="button" class="close" data-dismiss="alert">&times;</button><?php echo($error) ?></div>
 				<?php } ?>
-				<!-- End section Messages -->			
+				<!-- End section Messages -->	
+				
+				
+				<?php if (!isset($_SESSION['access_token'])) { ?>	
+					<div class="hero-unit">		
+						<h2><img src="img/engagorlogo.png" alt="" /> MentionsMap</h2>
+						<p>Login with your Engagor account and view your mentions on google maps</p>
+						<form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post" id="loginForm">
+							<input type="submit" class="btn btn-primary" id="btnLogin" name="btnLogin" value="Login" />
+						</form>	
+						<a href="http://www.engagor.com" class="btn">Visit Engagor</a>
+					</div>	
+				<?php } ?>		
+				
+
 			</div>
 			
-			<!--	    
-	    	<div id="footer">
-	        	<div class="container">
-	    			<p>Stephane Poppe</p>
-	    		</div>
-	 		</div>
-	        -->
-	        
-	            <script src="http://code.jquery.com/jquery.js"></script>
-	            <script src="js/bootstrap.min.js"></script>
+			
+				
+			<!-- Google maps -->
+			<div id="map"></div>
+			
+			
+
+			
+				<footer>
+					<div class="container">
+			     		<p>This app is powered by: <a href="http://engagor.com/"><img class="logoPow" src="img/engagorlogo.png" alt="" /></a></p>
+			     	</div>
+				</footer>
+			</div>
+	            
 	        
 	  </body>
 
